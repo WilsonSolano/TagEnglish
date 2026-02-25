@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TagEnglish</string>
+    <string name="widget_description">Muestra la palabra del día y tu progreso</string>
 </resources>
