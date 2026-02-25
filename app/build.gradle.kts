@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -55,4 +57,25 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // — Room —
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)           // usa KSP, no kapt
+
+    // — Kotlin Serialization —
+    implementation(libs.kotlinx.serialization.json)
+
+    // — ViewModel —
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    // — Coroutines —
+    implementation(libs.kotlinx.coroutines.android)
+
+    // — DataStore —
+    implementation(libs.androidx.datastore.preferences)
+
+    // — Glance widget —
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 }
