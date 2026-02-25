@@ -1,0 +1,72 @@
+[
+  {
+    "word": "light",
+    "usages": [
+      { "meaning": "luz",     "example": "Turn on the light, please." },
+      { "meaning": "ligero",  "example": "This bag is very light." }
+    ]
+  },
+  {
+    "word": "run",
+    "usages": [
+      { "meaning": "correr",  "example": "I run every morning." },
+      { "meaning": "ejecutar","example": "Run the program again." }
+    ]
+  },
+  {
+    "word": "bear",
+    "usages": [
+      { "meaning": "oso",     "example": "A bear lives in the forest." },
+      { "meaning": "soportar","example": "I can't bear the noise." }
+    ]
+  },
+  {
+    "word": "break",
+    "usages": [
+      { "meaning": "romper",  "example": "Don't break the glass." },
+      { "meaning": "descanso","example": "Let's take a short break." }
+    ]
+  },
+  {
+    "word": "book",
+    "usages": [
+      { "meaning": "libro",   "example": "I'm reading a good book." },
+      { "meaning": "reservar","example": "I need to book a table." }
+    ]
+  },
+  {
+    "word": "bright",
+    "usages": [
+      { "meaning": "brillante","example": "The stars are bright tonight." },
+      { "meaning": "inteligente","example": "She is a bright student." }
+    ]
+  },
+  {
+    "word": "cold",
+    "usages": [
+      { "meaning": "frío",    "example": "It is cold outside." },
+      { "meaning": "resfriado","example": "I have a bad cold." }
+    ]
+  },
+  {
+    "word": "fall",
+    "usages": [
+      { "meaning": "caer",    "example": "Be careful, don't fall." },
+      { "meaning": "otoño",   "example": "Leaves change color in fall." }
+    ]
+  },
+  {
+    "word": "match",
+    "usages": [
+      { "meaning": "partido", "example": "Did you watch the match?" },
+      { "meaning": "coincidir","example": "The colors don't match." }
+    ]
+  },
+  {
+    "word": "mind",
+    "usages": [
+      { "meaning": "mente",   "example": "Keep your mind focused." },
+      { "meaning": "importar","example": "Do you mind if I sit here?" }
+    ]
+  }
+]
