@@ -3,13 +3,15 @@ package com.example.tagenglish.domain.usecases
 import com.example.tagenglish.data.repository.WordRepository
 import com.example.tagenglish.domain.model.Question
 import com.example.tagenglish.domain.model.Word
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class GenerateTestQuestionsUseCase(
     private val repository: WordRepository
 ) {
-    suspend operator fun invoke(weekId: Int): List<Question> {
+    suspend operator fun invoke(weekId: Int): List<Question> = withContext(Dispatchers.IO) {
         val words = repository.getLearnedWordsByWeek(weekId)
-        if (words.isEmpty()) return emptyList()
+        if (words.isEmpty()) return@withContext emptyList()
 
         val questions = mutableListOf<Question>()
 
@@ -23,7 +25,7 @@ class GenerateTestQuestionsUseCase(
             }
         }
 
-        return questions.shuffled()
+        return@withContext questions.shuffled()
     }
 
     private fun buildMultipleChoice(

@@ -3,6 +3,8 @@ package com.example.tagenglish.domain.usecases
 import com.example.tagenglish.data.preferences.AppPreferences
 import com.example.tagenglish.data.repository.WordRepository
 import com.example.tagenglish.domain.model.TestResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Guarda el resultado del test semanal e incrementa la semana actual.
@@ -16,7 +18,7 @@ class SaveTestResultUseCase(
         weekId: Int,
         score: Int,
         totalQuestions: Int
-    ): TestResult {
+    ): TestResult = withContext(Dispatchers.IO) {
         val result = TestResult(
             id             = 0,
             weekId         = weekId,
@@ -31,6 +33,6 @@ class SaveTestResultUseCase(
         // Avanzar a la siguiente semana
         preferences.incrementCurrentWeek()
 
-        return result
+        return@withContext result
     }
 }

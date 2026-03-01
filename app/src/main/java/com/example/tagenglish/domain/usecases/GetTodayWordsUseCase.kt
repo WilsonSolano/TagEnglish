@@ -3,7 +3,9 @@ package com.example.tagenglish.domain.usecases
 import com.example.tagenglish.data.repository.WordRepository
 import com.example.tagenglish.domain.model.DailyProgress
 import com.example.tagenglish.domain.model.Word
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
@@ -24,5 +26,5 @@ class GetTodayWordsUseCase(
                 learnedWords = learned
             )
             Pair(words, progress)
-        }
+        }.flowOn(Dispatchers.IO)
 }
