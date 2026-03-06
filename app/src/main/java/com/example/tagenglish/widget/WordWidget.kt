@@ -51,20 +51,20 @@ private val WidgetLearned    = Color(0xFF1ECC7A)
 private val WidgetBtnBg      = Color(0xFF252530)
 private val WidgetDark       = Color(0xFF0D0D0F)
 
-// ─── Key compartida entre Widget y Action ────────────────────────────────────
+// ─── Key compartida ───────────────────────────────────────────────────────────
 
 val wordIdKey = ActionParameters.Key<Int>("word_id")
 
-// ─── Widget principal ─────────────────────────────────────────────────────────
+// ─── Widget ───────────────────────────────────────────────────────────────────
 
 class WordWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val db          = AppDatabase.getInstance(context)
-        val preferences = AppPreferences(context)
-        val repository  = WordRepositoryImpl(db.wordDao(), db.testResultDao())
+        val db         = AppDatabase.getInstance(context)
+        val prefs      = AppPreferences(context)
+        val repository = WordRepositoryImpl(db.wordDao(), db.testResultDao())
 
-        val todayIds     = preferences.todayWordIds.first()
+        val todayIds     = prefs.todayWordIds.first()
         val todayWords   = if (todayIds.isEmpty()) emptyList()
         else repository.getTodayWords(todayIds).first()
 
@@ -84,7 +84,7 @@ class WordWidget : GlanceAppWidget() {
     }
 }
 
-// ─── UI del widget ────────────────────────────────────────────────────────────
+// ─── UI ───────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun WidgetContent(
@@ -96,187 +96,180 @@ private fun WidgetContent(
     val allLearned   = totalCount > 0 && learnedCount >= totalCount
     val launchIntent = Intent(context, MainActivity::class.java)
 
-    Box(
+    Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(WidgetBg)
             .cornerRadius(20.dp)
+            .padding(14.dp)
             .clickable(actionStartActivity(launchIntent))
     ) {
-        Column(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .padding(14.dp)
-        ) {
 
-            // ── Header: título + badge ────────────────────────────────────
+        // ── Header: título + badge ────────────────────────────────────────
+        Row(
+            modifier          = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text  = "TagEnglish",
+                style = TextStyle(
+                    fontSize   = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = ColorProvider(WidgetAccentLime)
+                )
+            )
+            Spacer(GlanceModifier.defaultWeight())
             Row(
-                modifier          = GlanceModifier.fillMaxWidth(),
+                modifier          = GlanceModifier
+                    .background(WidgetBtnBg)
+                    .cornerRadius(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text  = "TagEnglish",
+                    text  = "$learnedCount/$totalCount",
                     style = TextStyle(
-                        fontSize   = 12.sp,
+                        fontSize   = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color      = ColorProvider(WidgetAccentLime)
-                    )
-                )
-                Spacer(GlanceModifier.defaultWeight())
-                Box(
-                    modifier         = GlanceModifier
-                        .background(WidgetBtnBg)
-                        .cornerRadius(8.dp)
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text  = "$learnedCount/$totalCount",
-                        style = TextStyle(
-                            fontSize   = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = ColorProvider(
-                                if (allLearned) WidgetLearned else WidgetAccentLime
-                            )
+                        color      = ColorProvider(
+                            if (allLearned) WidgetLearned else WidgetAccentLime
                         )
                     )
-                }
+                )
             }
+        }
 
-            Spacer(GlanceModifier.height(4.dp))
+        Spacer(GlanceModifier.height(4.dp))
 
-            // ── Mini barra de progreso ────────────────────────────────────
-            val fraction = if (totalCount == 0) 0f
-            else learnedCount.toFloat() / totalCount
+        // ── Barra de progreso (fondo) ─────────────────────────────────────
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(WidgetBtnBg)
+                .cornerRadius(4.dp)
+        ) { }
+
+        // Barra activa
+        if (learnedCount > 0) {
             Box(
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(WidgetBtnBg)
+                    .background(WidgetAccentLime)
                     .cornerRadius(4.dp)
-            ) {
-                if (fraction > 0f) {
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxWidth(fraction)
-                            .height(3.dp)
-                            .background(WidgetAccentLime)
-                            .cornerRadius(4.dp)
+            ) { }
+        }
+
+        Spacer(GlanceModifier.height(10.dp))
+
+        // ── Contenido según estado ────────────────────────────────────────
+        when {
+            totalCount == 0 || word == null -> {
+                Text(
+                    text  = "Abre la app para comenzar 🚀",
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        color    = ColorProvider(WidgetTextSec)
                     )
-                }
+                )
             }
 
-            Spacer(GlanceModifier.height(10.dp))
-
-            when {
-                // Sin palabras asignadas
-                totalCount == 0 || word == null -> {
-                    Text(
-                        text  = "Abre la app para\ncomenzar 🚀",
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            color    = ColorProvider(WidgetTextSec)
-                        )
+            allLearned -> {
+                Text(
+                    text  = "✅ Día completado!",
+                    style = TextStyle(
+                        fontSize   = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = ColorProvider(WidgetLearned)
                     )
-                }
-
-                // Todas aprendidas
-                allLearned -> {
-                    Text(
-                        text  = "✅ ¡Día completado!",
-                        style = TextStyle(
-                            fontSize   = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = ColorProvider(WidgetLearned)
-                        )
+                )
+                Spacer(GlanceModifier.height(4.dp))
+                Text(
+                    text  = "Vuelve mañana",
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        color    = ColorProvider(WidgetTextSec)
                     )
-                    Spacer(GlanceModifier.height(4.dp))
-                    Text(
-                        text  = "Vuelve mañana para\nnuevas palabras",
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            color    = ColorProvider(WidgetTextSec)
-                        )
+                )
+            }
+
+            else -> {
+                // Palabra
+                Text(
+                    text  = word.word,
+                    style = TextStyle(
+                        fontSize   = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = ColorProvider(WidgetTextPrim)
                     )
-                }
+                )
+                Spacer(GlanceModifier.height(6.dp))
 
-                // Palabra pendiente
-                else -> {
-                    Text(
-                        text  = word.word,
-                        style = TextStyle(
-                            fontSize   = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = ColorProvider(WidgetTextPrim)
-                        )
-                    )
-
-                    Spacer(GlanceModifier.height(6.dp))
-
-                    val usage = word.usages.firstOrNull()
-                    if (usage != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Línea azul lateral
-                            Box(
-                                modifier = GlanceModifier
-                                    .width(3.dp)
-                                    .height(32.dp)
-                                    .background(WidgetAccentBlue)
-                                    .cornerRadius(4.dp)
+                // Significado con línea azul lateral
+                val usage = word.usages.firstOrNull()
+                if (usage != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = GlanceModifier
+                                .width(3.dp)
+                                .height(32.dp)
+                                .background(WidgetAccentBlue)
+                                .cornerRadius(4.dp)
+                        ) { }
+                        Spacer(GlanceModifier.width(8.dp))
+                        Column {
+                            Text(
+                                text  = usage.meaning,
+                                style = TextStyle(
+                                    fontSize   = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = ColorProvider(WidgetTextPrim)
+                                )
                             )
-                            Spacer(GlanceModifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text  = usage.meaning,
-                                    style = TextStyle(
-                                        fontSize   = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color      = ColorProvider(WidgetTextPrim)
-                                    )
+                            Text(
+                                text  = usage.example,
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    color    = ColorProvider(WidgetTextSec)
                                 )
-                                Text(
-                                    text  = usage.example,
-                                    style = TextStyle(
-                                        fontSize = 10.sp,
-                                        color    = ColorProvider(WidgetTextSec)
-                                    )
-                                )
-                            }
+                            )
                         }
                     }
+                }
 
-                    Spacer(GlanceModifier.defaultWeight())
+                Spacer(GlanceModifier.defaultWeight())
 
-                    // ── Botón Marcar aprendida ────────────────────────────
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .height(34.dp)
-                            .background(WidgetAccentLime)
-                            .cornerRadius(10.dp)
-                            .clickable(
-                                actionRunCallback<MarkLearnedAction>(
-                                    actionParametersOf(wordIdKey to word.id)
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text  = "✓  Marcar aprendida",
-                            style = TextStyle(
-                                fontSize   = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color      = ColorProvider(WidgetDark)
+                // ── Botón marcar aprendida ────────────────────────────────
+                Row(
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .background(WidgetAccentLime)
+                        .cornerRadius(10.dp)
+                        .clickable(
+                            actionRunCallback<MarkLearnedAction>(
+                                actionParametersOf(wordIdKey to word.id)
                             )
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalAlignment   = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text  = "✓  Marcar aprendida",
+                        style = TextStyle(
+                            fontSize   = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = ColorProvider(WidgetDark)
                         )
-                    }
+                    )
                 }
             }
         }
     }
 }
 
-// ─── ActionCallback: ejecuta el marcado sin abrir la app ─────────────────────
+// ─── ActionCallback ───────────────────────────────────────────────────────────
 
 class MarkLearnedAction : ActionCallback {
 
@@ -287,18 +280,17 @@ class MarkLearnedAction : ActionCallback {
     ) {
         val wordId = parameters[wordIdKey] ?: return
 
-        val db          = AppDatabase.getInstance(context)
-        val preferences = AppPreferences(context)
-        val repository  = WordRepositoryImpl(db.wordDao(), db.testResultDao())
-        val currentWeek = preferences.currentWeek.first()
+        val db         = AppDatabase.getInstance(context)
+        val prefs      = AppPreferences(context)
+        val repository = WordRepositoryImpl(db.wordDao(), db.testResultDao())
+        val week       = prefs.currentWeek.first()
 
         repository.markWordAsLearned(
             wordId = wordId,
             date   = System.currentTimeMillis(),
-            week   = currentWeek
+            week   = week
         )
 
-        // Refresca todos los widgets en pantalla
         WordWidget().updateAll(context)
     }
 }
