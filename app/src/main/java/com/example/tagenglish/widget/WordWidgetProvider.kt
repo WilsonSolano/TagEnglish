@@ -6,12 +6,17 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.LinearLayout
 import android.widget.RemoteViews
+import android.widget.TextView
 import com.example.tagenglish.MainActivity
 import com.example.tagenglish.R
 import com.example.tagenglish.data.local.database.AppDatabase
 import com.example.tagenglish.data.preferences.AppPreferences
 import com.example.tagenglish.data.repository.WordRepositoryImpl
+import com.example.tagenglish.domain.model.Word
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -31,7 +36,6 @@ class WordWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        // Escuchar el broadcast que manda HomeViewModel al marcar aprendida
         if (intent.action == ACTION_REFRESH) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(
@@ -50,75 +54,98 @@ class WordWidgetProvider : AppWidgetProvider() {
             appWidgetId: Int
         ) {
             CoroutineScope(Dispatchers.IO).launch {
-                // Leer datos frescos de la DB
                 val db         = AppDatabase.getInstance(context)
                 val prefs      = AppPreferences(context)
                 val repository = WordRepositoryImpl(db.wordDao(), db.testResultDao())
 
                 val todayIds   = prefs.todayWordIds.first()
                 val todayWords = if (todayIds.isEmpty()) emptyList()
-                                 else repository.getTodayWords(todayIds).first()
+                else repository.getTodayWords(todayIds).first()
 
                 val learnedCount = todayWords.count { it.isLearned }
                 val totalCount   = todayWords.size
                 val targetWord   = todayWords.firstOrNull { !it.isLearned }
-                                ?: todayWords.firstOrNull()
+                    ?: todayWords.firstOrNull()
 
-                // Construir RemoteViews
                 val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-                // Click en el widget → abrir app
-                val launchIntent = Intent(context, MainActivity::class.java)
-                val pendingIntent = PendingIntent.getActivity(
-                    context, 0, launchIntent,
+                // Click → abrir app
+                val pending = PendingIntent.getActivity(
+                    context, 0,
+                    Intent(context, MainActivity::class.java),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setOnClickPendingIntent(R.id.widget_title, pendingIntent)
+                views.setOnClickPendingIntent(R.id.widget_title, pending)
 
-                // Contador
+                // Contador + progreso
                 views.setTextViewText(R.id.widget_counter, "$learnedCount/$totalCount")
-
-                // Barra de progreso
-                val progress = if (totalCount > 0) (learnedCount * 100 / totalCount) else 0
+                val progress = if (totalCount > 0) learnedCount * 100 / totalCount else 0
                 views.setProgressBar(R.id.widget_progress, 100, progress, false)
 
-                // Contenido según estado
                 val allLearned = totalCount > 0 && learnedCount >= totalCount
 
                 when {
                     totalCount == 0 || targetWord == null -> {
-                        views.setTextViewText(R.id.widget_word, "Abre la app")
-                        views.setTextViewText(R.id.widget_meaning1, "")
-                        views.setTextViewText(R.id.widget_meaning2, "")
+                        views.setTextViewText(R.id.widget_word, "Abre la app 🚀")
+                        views.setViewVisibility(R.id.widget_phonetic, View.GONE)
+                        views.removeAllViews(R.id.widget_usages_container)
                     }
+
                     allLearned -> {
-                        views.setTextViewText(R.id.widget_word, "¡Día completo! ✅")
-                        views.setTextViewText(R.id.widget_meaning1, "Vuelve mañana")
-                        views.setTextViewText(R.id.widget_meaning2, "")
+                        views.setTextViewText(R.id.widget_word, "✅ ¡Día completo!")
+                        views.setViewVisibility(R.id.widget_phonetic, View.GONE)
+                        views.removeAllViews(R.id.widget_usages_container)
+
+                        // Añadir "Vuelve mañana" como item
+                        val row = buildUsageRow(context, "Vuelve mañana", "")
+                        views.addView(R.id.widget_usages_container, row)
                     }
+
                     else -> {
+                        // Palabra
                         views.setTextViewText(R.id.widget_word, targetWord.word)
 
-                        val u1 = targetWord.usages.getOrNull(0)
-                        val u2 = targetWord.usages.getOrNull(1)
+                        // Fonética
+                        if (targetWord.phonetic.isNotBlank()) {
+                            views.setTextViewText(R.id.widget_phonetic, targetWord.phonetic)
+                            views.setViewVisibility(R.id.widget_phonetic, View.VISIBLE)
+                        } else {
+                            views.setViewVisibility(R.id.widget_phonetic, View.GONE)
+                        }
 
-                        views.setTextViewText(
-                            R.id.widget_meaning1,
-                            if (u1 != null) "${u1.meaning} · ${u1.example}" else ""
-                        )
-                        views.setTextViewText(
-                            R.id.widget_meaning2,
-                            if (u2 != null) "${u2.meaning} · ${u2.example}" else ""
-                        )
+                        // Significados — todos, con scroll
+                        views.removeAllViews(R.id.widget_usages_container)
+                        targetWord.usages.forEach { usage ->
+                            val row = buildUsageRow(context, usage.meaning, usage.example)
+                            views.addView(R.id.widget_usages_container, row)
+                        }
                     }
                 }
 
-                // Aplicar al widget
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             }
         }
 
-        // Llamar esto desde HomeViewModel para forzar refresh inmediato
+        /**
+         * Construye una fila RemoteViews para un significado.
+         * RemoteViews solo acepta layouts XML — inflamos widget_usage_item.xml.
+         */
+        private fun buildUsageRow(
+            context: Context,
+            meaning: String,
+            example: String
+        ): RemoteViews {
+            val row = RemoteViews(context.packageName, R.layout.widget_usage_item)
+            row.setTextViewText(R.id.usage_meaning, meaning)
+            if (example.isNotBlank()) {
+                row.setTextViewText(R.id.usage_example, example)
+                row.setViewVisibility(R.id.usage_example, View.VISIBLE)
+            } else {
+                row.setViewVisibility(R.id.usage_example, View.GONE)
+            }
+            return row
+        }
+
         fun requestUpdate(context: Context) {
             val intent = Intent(context, WordWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
