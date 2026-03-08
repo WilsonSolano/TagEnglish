@@ -8,11 +8,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -27,6 +27,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.text.FontStyle
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -44,10 +45,9 @@ private val WidgetBg         = Color(0xFF16161A)
 private val WidgetAccentLime = Color(0xFFCAFF4D)
 private val WidgetTextPrim   = Color(0xFFF5F5F5)
 private val WidgetTextSec    = Color(0xFF8A8A9A)
+private val WidgetTextMuted  = Color(0xFF4A4A5A)
 private val WidgetLearned    = Color(0xFF1ECC7A)
 private val WidgetBtnBg      = Color(0xFF252530)
-
-val wordIdKey = ActionParameters.Key<Int>("word_id")
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ private fun WidgetContent(
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
 
-            // ── Header ────────────────────────────────────────────────────────
+            // ── Header: título + badge progreso ───────────────────────────────
             Row(
                 modifier          = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -160,17 +160,14 @@ private fun WidgetContent(
                 ) { }
             }
 
-            Spacer(GlanceModifier.height(7.dp))
+            Spacer(GlanceModifier.height(8.dp))
 
             // ── Contenido ─────────────────────────────────────────────────────
             when {
                 totalCount == 0 || word == null -> {
                     Text(
                         text  = "Abre la app 🚀",
-                        style = TextStyle(
-                            fontSize = 12.sp,
-                            color    = ColorProvider(WidgetTextSec)
-                        )
+                        style = TextStyle(fontSize = 11.sp, color = ColorProvider(WidgetTextSec))
                     )
                 }
 
@@ -186,10 +183,7 @@ private fun WidgetContent(
                     Spacer(GlanceModifier.height(4.dp))
                     Text(
                         text  = "Vuelve mañana",
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            color    = ColorProvider(WidgetTextSec)
-                        )
+                        style = TextStyle(fontSize = 11.sp, color = ColorProvider(WidgetTextSec))
                     )
                 }
 
@@ -198,34 +192,65 @@ private fun WidgetContent(
                     Text(
                         text  = word.word,
                         style = TextStyle(
-                            fontSize   = 18.sp,
+                            fontSize   = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(WidgetTextPrim)
                         )
                     )
 
-                    Spacer(GlanceModifier.height(5.dp))
-
-                    // ── Significado 1: meaning + ejemplo en misma línea ───────
-                    word.usages.getOrNull(0)?.let { u ->
+                    // Fonética (si ya fue cargada desde la API)
+                    if (word.phonetic.isNotBlank()) {
+                        Spacer(GlanceModifier.height(1.dp))
                         Text(
-                            text  = "${u.meaning} · ${u.example}",
+                            text  = word.phonetic,
                             style = TextStyle(
-                                fontSize = 10.sp,
-                                color    = ColorProvider(WidgetTextPrim)
+                                fontSize  = 10.sp,
+                                fontStyle = FontStyle.Italic,
+                                color     = ColorProvider(WidgetTextMuted)
                             )
                         )
                     }
 
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.height(7.dp))
 
-                    // ── Significado 2: meaning + ejemplo en misma línea ───────
-                    word.usages.getOrNull(1)?.let { u ->
+                    // ── Significado 1: meaning + ejemplo ─────────────────────
+                    word.usages.getOrNull(0)?.let { usage ->
                         Text(
-                            text  = "${u.meaning} · ${u.example}",
+                            text  = usage.meaning,
                             style = TextStyle(
-                                fontSize = 10.sp,
-                                color    = ColorProvider(WidgetTextSec)
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = ColorProvider(WidgetTextPrim)
+                            )
+                        )
+                        Text(
+                            text  = usage.example,
+                            style = TextStyle(
+                                fontSize  = 9.sp,
+                                fontStyle = FontStyle.Italic,
+                                color     = ColorProvider(WidgetTextSec)
+                            )
+                        )
+                    }
+
+                    Spacer(GlanceModifier.height(5.dp))
+
+                    // ── Significado 2: meaning + ejemplo ─────────────────────
+                    word.usages.getOrNull(1)?.let { usage ->
+                        Text(
+                            text  = usage.meaning,
+                            style = TextStyle(
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = ColorProvider(WidgetTextSec)
+                            )
+                        )
+                        Text(
+                            text  = usage.example,
+                            style = TextStyle(
+                                fontSize  = 9.sp,
+                                fontStyle = FontStyle.Italic,
+                                color     = ColorProvider(WidgetTextMuted)
                             )
                         )
                     }
@@ -235,28 +260,14 @@ private fun WidgetContent(
     }
 }
 
-// ─── ActionCallback ───────────────────────────────────────────────────────────
+// ─── ActionCallback vacío (se mantiene por si se necesita en el futuro) ───────
 
 class MarkLearnedAction : ActionCallback {
-
     override suspend fun onAction(
         context: Context,
         glanceId: GlanceId,
-        parameters: ActionParameters
+        parameters: androidx.glance.action.ActionParameters
     ) {
-        val wordId = parameters[wordIdKey] ?: return
-
-        val db         = AppDatabase.getInstance(context)
-        val prefs      = AppPreferences(context)
-        val repository = WordRepositoryImpl(db.wordDao(), db.testResultDao())
-        val week       = prefs.currentWeek.first()
-
-        repository.markWordAsLearned(
-            wordId = wordId,
-            date   = System.currentTimeMillis(),
-            week   = week
-        )
-
         WordWidget().updateAll(context)
     }
 }

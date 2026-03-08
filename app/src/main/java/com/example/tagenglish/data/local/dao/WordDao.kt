@@ -44,6 +44,10 @@ interface WordDao {
     """)
     suspend fun unmarkAsLearned(wordId: Int)
 
+    // ← nuevo: guarda la fonética obtenida de la API
+    @Query("UPDATE words SET phonetic = :phonetic WHERE id = :wordId")
+    suspend fun savePhonetic(wordId: Int, phonetic: String)
+
     // ─── Queries ──────────────────────────────────────────────────────────────
 
     @Query("SELECT * FROM words WHERE isAssigned = 0 LIMIT :limit")
@@ -61,12 +65,10 @@ interface WordDao {
     @Query("SELECT * FROM words WHERE isLearned = 1 ORDER BY learnedDate DESC")
     fun getAllLearnedWords(): Flow<List<WordWithUsages>>
 
-    /** Todas las palabras con sus usos — para exportar */
     @Transaction
     @Query("SELECT * FROM words ORDER BY word ASC")
     suspend fun getAllWordsWithUsages(): List<WordWithUsages>
 
-    /** Todas las palabras reactivo — para la pantalla de vocabulario */
     @Transaction
     @Query("SELECT * FROM words ORDER BY word ASC")
     fun getAllWordsWithUsagesFlow(): Flow<List<WordWithUsages>>

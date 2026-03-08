@@ -8,6 +8,7 @@ data class WordEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val word: String,
+    val phonetic: String = "",          // ← nuevo: ej. "/lɪt/"
     val isAssigned: Boolean = false,
     val assignedDate: Long = 0L,
     val isLearned: Boolean = false,

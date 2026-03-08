@@ -14,7 +14,7 @@ import com.example.tagenglish.domain.usecases.MarkWordAsLearnedUseCase
 import com.example.tagenglish.domain.usecases.SaveTestResultUseCase
 import com.example.tagenglish.domain.usecases.UnmarkWordAsLearnedUseCase
 
-class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+class ViewModelFactory(context: Context) : ViewModelProvider.Factory {
 
     private val db          = AppDatabase.getInstance(context)
     private val preferences = AppPreferences(context)
@@ -40,8 +40,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
             assignDailyWordsUseCase  = assignDailyWordsUseCase,
             markWordAsLearnedUseCase = markWordAsLearnedUseCase,
             checkWeeklyTestUseCase   = checkWeeklyTestUseCase,
-            preferences              = preferences
-        ).also { it.setContext(context) } as T  // ← pasa el context para actualizar el widget
+            preferences              = preferences,
+            repository               = repository      // ← nuevo
+        ) as T
 
         modelClass.isAssignableFrom(TestViewModel::class.java) -> TestViewModel(
             generateTestQuestionsUseCase = generateQuestionsUseCase,

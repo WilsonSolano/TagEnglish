@@ -5,6 +5,7 @@ package com.example.tagenglish.domain.model
 data class Word(
     val id: Int,
     val word: String,
+    val phonetic: String = "",          // ← nuevo: ej. "/lɪt/"
     val isAssigned: Boolean,
     val assignedDate: Long,
     val isLearned: Boolean,
@@ -62,7 +63,7 @@ sealed class Question {
 
     data class FillInBlank(
         val wordId: Int,
-        val example: String,        // la palabra reemplazada por "___"
+        val example: String,
         val correctWord: String
     ) : Question()
 

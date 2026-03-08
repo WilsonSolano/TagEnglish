@@ -34,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -49,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +81,10 @@ fun HomeScreen(
 ) {
     val uiState           by viewModel.uiState.collectAsState()
     val snackbarHostState =  remember { SnackbarHostState() }
+    val context           = LocalContext.current
+
+    // Inicializar TTS al entrar a la pantalla
+    LaunchedEffect(Unit) { viewModel.initTts(context) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -140,9 +146,11 @@ fun HomeScreen(
                                 slideInVertically(tween(300, delayMillis = index * 80)) { it / 3 }
                     ) {
                         WordCard(
-                            word          = word,
-                            index         = index,
-                            onMarkLearned = { viewModel.markAsLearned(word.id) }
+                            word            = word,
+                            index           = index,
+                            isLoadingAudio  = uiState.loadingAudioWordId == word.id,
+                            onMarkLearned   = { viewModel.markAsLearned(word.id) },
+                            onPlayAudio     = { viewModel.playPronunciation(context, word.id, word.word) }
                         )
                     }
                 }
@@ -166,7 +174,6 @@ private fun AppHeader(
             .padding(horizontal = 24.dp, vertical = 22.dp)
     ) {
         Column {
-            // Título + badge semana
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 verticalAlignment     = Alignment.CenterVertically,
@@ -204,12 +211,10 @@ private fun AppHeader(
 
             Spacer(Modifier.height(14.dp))
 
-            // Dos botones de acceso rápido
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Ver aprendidas
                 OutlinedButton(
                     onClick  = onViewLearned,
                     modifier = Modifier.weight(1f),
@@ -223,14 +228,9 @@ private fun AppHeader(
                         modifier           = Modifier.size(15.dp)
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(
-                        text       = "Aprendidas",
-                        fontSize   = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text("Aprendidas", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
 
-                // Gestionar vocabulario
                 OutlinedButton(
                     onClick  = onManageVocabulary,
                     modifier = Modifier.weight(1f),
@@ -240,11 +240,7 @@ private fun AppHeader(
                 ) {
                     Text("📦", fontSize = 13.sp)
                     Spacer(Modifier.width(6.dp))
-                    Text(
-                        text       = "Vocabulario",
-                        fontSize   = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text("Vocabulario", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -262,11 +258,7 @@ private fun ProgressSection(learned: Int, total: Int) {
         label         = "progress"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape    = RoundedCornerShape(20.dp),
@@ -295,16 +287,11 @@ private fun ProgressSection(learned: Int, total: Int) {
                 }
                 Spacer(Modifier.height(14.dp))
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF252530))
+                    modifier = Modifier.fillMaxWidth().height(8.dp)
+                        .clip(CircleShape).background(Color(0xFF252530))
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth(animFraction)
-                            .height(8.dp)
+                        modifier = Modifier.fillMaxWidth(animFraction).height(8.dp)
                             .clip(CircleShape)
                             .background(Brush.horizontalGradient(listOf(AccentLime, AccentBlue)))
                     )
@@ -328,18 +315,20 @@ private fun ProgressSection(learned: Int, total: Int) {
 // ─── WordCard ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
+private fun WordCard(
+    word: Word,
+    index: Int,
+    isLoadingAudio: Boolean,
+    onMarkLearned: () -> Unit,
+    onPlayAudio: () -> Unit
+) {
     val accentColor = when (index % 3) {
         0    -> AccentLime
         1    -> AccentBlue
         else -> AccentPurple
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape    = RoundedCornerShape(20.dp),
@@ -353,59 +342,101 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
 
+                // ── Fila: palabra + badge aprendida + botón audio ─────────────
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
                     verticalAlignment     = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Dot + palabra
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier          = Modifier.weight(1f)
+                    ) {
                         Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
+                            modifier = Modifier.size(8.dp).clip(CircleShape)
                                 .background(if (word.isLearned) Learned else accentColor)
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text(
-                            text          = word.word,
-                            fontSize      = 26.sp,
-                            fontWeight    = FontWeight.Black,
-                            color         = if (word.isLearned) Learned else TextPrimary,
-                            letterSpacing = (-0.5).sp
-                        )
-                    }
-                    AnimatedVisibility(
-                        visible = word.isLearned,
-                        enter   = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF1A3024))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
+                        Column {
                             Text(
-                                text       = "✓ aprendida",
-                                fontSize   = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color      = Learned
+                                text          = word.word,
+                                fontSize      = 26.sp,
+                                fontWeight    = FontWeight.Black,
+                                color         = if (word.isLearned) Learned else TextPrimary,
+                                letterSpacing = (-0.5).sp
                             )
+                            // Fonética (si ya se cargó de la API)
+                            if (word.phonetic.isNotBlank()) {
+                                Text(
+                                    text     = word.phonetic,
+                                    fontSize = 13.sp,
+                                    color    = TextSecondary,
+                                    fontStyle = FontStyle.Italic
+                                )
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Badge aprendida
+                        AnimatedVisibility(
+                            visible = word.isLearned,
+                            enter   = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF1A3024))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text       = "✓ aprendida",
+                                    fontSize   = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = Learned
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        // Botón de audio 🔊
+                        Box(
+                            modifier         = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(CardBorder),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoadingAudio) {
+                                CircularProgressIndicator(
+                                    modifier    = Modifier.size(18.dp),
+                                    color       = accentColor,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                IconButton(
+                                    onClick  = onPlayAudio,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Text("🔊", fontSize = 16.sp)
+                                }
+                            }
                         }
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
+                // ── Significados ──────────────────────────────────────────────
                 word.usages.forEachIndexed { i, usage ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                             .padding(bottom = if (i < word.usages.size - 1) 12.dp else 0.dp)
                     ) {
                         Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(48.dp)
+                            modifier = Modifier.width(3.dp).height(48.dp)
                                 .clip(CircleShape)
                                 .background(accentColor.copy(alpha = 0.4f))
                         )
@@ -457,11 +488,7 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
 
 @Composable
 private fun CycleCompletedBanner(onDismiss: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape    = RoundedCornerShape(20.dp),
@@ -469,12 +496,7 @@ private fun CycleCompletedBanner(onDismiss: () -> Unit) {
             border   = androidx.compose.foundation.BorderStroke(1.dp, AccentLime.copy(alpha = 0.3f))
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text       = "🎉 ¡Ciclo completado!",
-                    fontSize   = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    color      = AccentLime
-                )
+                Text("🎉 ¡Ciclo completado!", fontSize = 18.sp, fontWeight = FontWeight.Black, color = AccentLime)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text     = "Has aprendido todo el vocabulario disponible. ¿Volvemos a empezar?",
@@ -506,18 +528,9 @@ private fun EmptyState() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("📖", fontSize = 48.sp)
             Spacer(Modifier.height(16.dp))
-            Text(
-                text       = "No hay palabras hoy",
-                fontSize   = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color      = TextPrimary
-            )
+            Text("No hay palabras hoy", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Spacer(Modifier.height(6.dp))
-            Text(
-                text     = "Vuelve mañana para nuevas palabras",
-                fontSize = 13.sp,
-                color    = TextSecondary
-            )
+            Text("Vuelve mañana para nuevas palabras", fontSize = 13.sp, color = TextSecondary)
         }
     }
 }

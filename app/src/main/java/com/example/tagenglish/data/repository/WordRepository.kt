@@ -22,13 +22,10 @@ interface WordRepository {
 
     fun getAllLearnedWords(): Flow<List<Word>>
 
-    /** Todas las palabras del sistema (para exportar / pantalla de vocab) */
     suspend fun getAllWords(): List<Word>
 
-    /** Todas las palabras reactivo */
     fun getAllWordsFlow(): Flow<List<Word>>
 
-    /** Importar palabras nuevas desde JSON (ignora duplicados) */
     suspend fun importWords(words: List<Word>): Int
 
     suspend fun saveTestResult(result: TestResult)
@@ -40,4 +37,11 @@ interface WordRepository {
     fun getAllTestResults(): Flow<List<TestResult>>
 
     suspend fun resetAllWords()
+
+    /**
+     * Llama a la Free Dictionary API, obtiene fonética + URL de audio,
+     * guarda la fonética en DB y devuelve la URL del audio para reproducir.
+     * Devuelve null si no hay conexión o la palabra no está en el diccionario.
+     */
+    suspend fun fetchAndSavePhonetic(wordId: Int, word: String): String?
 }

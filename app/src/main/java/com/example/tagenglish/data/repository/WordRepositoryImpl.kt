@@ -6,6 +6,7 @@ import com.example.tagenglish.data.local.entities.UsageEntity
 import com.example.tagenglish.data.local.entities.WordEntity
 import com.example.tagenglish.data.local.entities.toDomain
 import com.example.tagenglish.data.local.entities.toEntity
+import com.example.tagenglish.data.remote.DictionaryApiService
 import com.example.tagenglish.domain.model.TestResult
 import com.example.tagenglish.domain.model.Word
 import kotlinx.coroutines.flow.Flow
@@ -83,4 +84,18 @@ class WordRepositoryImpl(
 
     override suspend fun resetAllWords() =
         wordDao.resetAllWords()
+
+    // ─── Fonética + audio desde Free Dictionary API ───────────────────────────
+
+    override suspend fun fetchAndSavePhonetic(wordId: Int, word: String): String? {
+        val result = DictionaryApiService.lookup(word) ?: return null
+
+        // Guardar fonética en DB solo si encontramos algo
+        if (result.phonetic.isNotBlank()) {
+            wordDao.savePhonetic(wordId, result.phonetic)
+        }
+
+        // Devolver URL de audio (puede ser vacía si no hay mp3)
+        return result.audioUrl.ifBlank { null }
+    }
 }

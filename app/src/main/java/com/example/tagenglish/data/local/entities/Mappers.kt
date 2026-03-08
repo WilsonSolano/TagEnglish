@@ -9,6 +9,7 @@ import com.example.tagenglish.domain.model.Word
 fun WordWithUsages.toDomain(): Word = Word(
     id           = word.id,
     word         = word.word,
+    phonetic     = word.phonetic,       // ← nuevo
     isAssigned   = word.isAssigned,
     assignedDate = word.assignedDate,
     isLearned    = word.isLearned,

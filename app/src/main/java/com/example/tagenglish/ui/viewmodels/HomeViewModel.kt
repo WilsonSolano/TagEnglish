@@ -1,7 +1,8 @@
 package com.example.tagenglish.ui.viewmodels
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
+import android.media.MediaPlayer
+import android.speech.tts.TextToSpeech
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tagenglish.data.preferences.AppPreferences
@@ -11,7 +12,7 @@ import com.example.tagenglish.domain.usecases.AssignDailyWordsUseCase
 import com.example.tagenglish.domain.usecases.CheckWeeklyTestUseCase
 import com.example.tagenglish.domain.usecases.GetTodayWordsUseCase
 import com.example.tagenglish.domain.usecases.MarkWordAsLearnedUseCase
-import com.example.tagenglish.widget.WordWidget
+import com.example.tagenglish.data.repository.WordRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,23 +20,23 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.Locale
 
 class HomeViewModel(
     private val getTodayWordsUseCase: GetTodayWordsUseCase,
     private val assignDailyWordsUseCase: AssignDailyWordsUseCase,
     private val markWordAsLearnedUseCase: MarkWordAsLearnedUseCase,
     private val checkWeeklyTestUseCase: CheckWeeklyTestUseCase,
-    private val preferences: AppPreferences
+    private val preferences: AppPreferences,
+    private val repository: WordRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var appContext: Context? = null
-
-    fun setContext(context: Context) {
-        appContext = context.applicationContext
-    }
+    // TTS como fallback cuando no hay audio en la API
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
 
     init {
         assignWordsIfNeeded()
@@ -43,28 +44,85 @@ class HomeViewModel(
         checkWeeklyTest()
     }
 
+    fun initTts(context: Context) {
+        if (tts != null) return
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.US
+                ttsReady = true
+            }
+        }
+    }
+
+    // ─── Reproducir pronunciación ─────────────────────────────────────────────
+
+    fun playPronunciation(context: Context, wordId: Int, wordText: String) {
+        // Evitar múltiples clicks simultáneos
+        if (_uiState.value.loadingAudioWordId == wordId) return
+
+        _uiState.update { it.copy(loadingAudioWordId = wordId) }
+
+        viewModelScope.launch {
+            try {
+                val audioUrl = repository.fetchAndSavePhonetic(wordId, wordText)
+
+                if (!audioUrl.isNullOrBlank()) {
+                    // ── Reproducir .mp3 de la API ─────────────────────────────
+                    playMp3(audioUrl)
+                } else {
+                    // ── Fallback: TTS nativo ──────────────────────────────────
+                    initTts(context)
+                    if (ttsReady) {
+                        tts?.speak(wordText, TextToSpeech.QUEUE_FLUSH, null, "word_$wordId")
+                    }
+                }
+            } catch (e: Exception) {
+                // Fallback silencioso
+                initTts(context)
+                if (ttsReady) {
+                    tts?.speak(wordText, TextToSpeech.QUEUE_FLUSH, null, "word_$wordId")
+                }
+            } finally {
+                _uiState.update { it.copy(loadingAudioWordId = null) }
+            }
+        }
+    }
+
+    private fun playMp3(url: String) {
+        try {
+            MediaPlayer().apply {
+                setDataSource(url)
+                setOnPreparedListener { start() }
+                setOnCompletionListener { release() }
+                setOnErrorListener { mp, _, _ -> mp.release(); true }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            // silencioso
+        }
+    }
+
+    // ─── Asignar palabras del día ─────────────────────────────────────────────
+
     private fun assignWordsIfNeeded() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
             when (val result = assignDailyWordsUseCase(LocalDate.now().toString())) {
-                is AssignDailyWordsUseCase.Result.NewWordsAssigned -> {
+                is AssignDailyWordsUseCase.Result.NewWordsAssigned ->
                     _uiState.update { it.copy(message = null) }
-                }
-                is AssignDailyWordsUseCase.Result.Blocked -> {
-                    _uiState.update {
-                        it.copy(message = "Termina de aprender las palabras de hoy primero.")
-                    }
-                }
-                is AssignDailyWordsUseCase.Result.CycleCompleted -> {
+                is AssignDailyWordsUseCase.Result.Blocked ->
+                    _uiState.update { it.copy(message = "Termina de aprender las palabras de hoy primero.") }
+                is AssignDailyWordsUseCase.Result.CycleCompleted ->
                     _uiState.update { it.copy(isCycleCompleted = true) }
-                }
-                is AssignDailyWordsUseCase.Result.AlreadyAssignedToday -> { /* no-op */ }
+                is AssignDailyWordsUseCase.Result.AlreadyAssignedToday -> { }
             }
 
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    // ─── Observar palabras del día ────────────────────────────────────────────
 
     private fun observeTodayWords() {
         viewModelScope.launch {
@@ -73,34 +131,29 @@ class HomeViewModel(
                     _uiState.update { it.copy(words = emptyList()) }
                     return@collectLatest
                 }
-
                 getTodayWordsUseCase(ids).collectLatest { (words, progress) ->
-                    _uiState.update {
-                        it.copy(words = words, progress = progress)
-                    }
+                    _uiState.update { it.copy(words = words, progress = progress) }
                 }
             }
         }
     }
+
+    // ─── Verificar test semanal ───────────────────────────────────────────────
 
     private fun checkWeeklyTest() {
         viewModelScope.launch {
             when (val result = checkWeeklyTestUseCase()) {
-                is CheckWeeklyTestUseCase.Result.TestReady -> {
+                is CheckWeeklyTestUseCase.Result.TestReady ->
                     _uiState.update { it.copy(weeklyTestReady = true, currentWeekId = result.weekId) }
-                }
-                else -> { /* no-op */ }
+                else -> { }
             }
         }
     }
 
+    // ─── Acciones ─────────────────────────────────────────────────────────────
+
     fun markAsLearned(wordId: Int) {
-        viewModelScope.launch {
-            markWordAsLearnedUseCase(wordId)
-            appContext?.let { ctx ->
-                WordWidget().updateAll(ctx)
-            }
-        }
+        viewModelScope.launch { markWordAsLearnedUseCase(wordId) }
     }
 
     fun dismissMessage() {
@@ -110,14 +163,22 @@ class HomeViewModel(
     fun dismissCycleCompleted() {
         _uiState.update { it.copy(isCycleCompleted = false) }
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        tts?.shutdown()
+    }
 }
+
+// ─── Estado ───────────────────────────────────────────────────────────────────
 
 data class HomeUiState(
     val isLoading: Boolean        = false,
     val words: List<Word>         = emptyList(),
     val progress: DailyProgress   = DailyProgress(0, 0),
     val message: String?          = null,
-    val isCycleCompleted: Boolean  = false,
-    val weeklyTestReady: Boolean   = false,
-    val currentWeekId: Int         = 1
+    val isCycleCompleted: Boolean = false,
+    val weeklyTestReady: Boolean  = false,
+    val currentWeekId: Int        = 1,
+    val loadingAudioWordId: Int?  = null   // ID de la palabra cuyo audio está cargando
 )
