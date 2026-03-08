@@ -1,5 +1,7 @@
 package com.example.tagenglish.ui.viewmodels
 
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tagenglish.data.preferences.AppPreferences
@@ -9,13 +11,11 @@ import com.example.tagenglish.domain.usecases.AssignDailyWordsUseCase
 import com.example.tagenglish.domain.usecases.CheckWeeklyTestUseCase
 import com.example.tagenglish.domain.usecases.GetTodayWordsUseCase
 import com.example.tagenglish.domain.usecases.MarkWordAsLearnedUseCase
+import com.example.tagenglish.widget.WordWidget
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -28,20 +28,20 @@ class HomeViewModel(
     private val preferences: AppPreferences
 ) : ViewModel() {
 
-    // ─── Estado de la UI ──────────────────────────────────────────────────────
-
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // ─── Init ─────────────────────────────────────────────────────────────────
+    private var appContext: Context? = null
+
+    fun setContext(context: Context) {
+        appContext = context.applicationContext
+    }
 
     init {
         assignWordsIfNeeded()
         observeTodayWords()
         checkWeeklyTest()
     }
-
-    // ─── Asignar palabras del día ─────────────────────────────────────────────
 
     private fun assignWordsIfNeeded() {
         viewModelScope.launch {
@@ -57,9 +57,7 @@ class HomeViewModel(
                     }
                 }
                 is AssignDailyWordsUseCase.Result.CycleCompleted -> {
-                    _uiState.update {
-                        it.copy(isCycleCompleted = true)
-                    }
+                    _uiState.update { it.copy(isCycleCompleted = true) }
                 }
                 is AssignDailyWordsUseCase.Result.AlreadyAssignedToday -> { /* no-op */ }
             }
@@ -67,8 +65,6 @@ class HomeViewModel(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
-
-    // ─── Observar palabras del día reactivamente ──────────────────────────────
 
     private fun observeTodayWords() {
         viewModelScope.launch {
@@ -80,17 +76,12 @@ class HomeViewModel(
 
                 getTodayWordsUseCase(ids).collectLatest { (words, progress) ->
                     _uiState.update {
-                        it.copy(
-                            words    = words,
-                            progress = progress
-                        )
+                        it.copy(words = words, progress = progress)
                     }
                 }
             }
         }
     }
-
-    // ─── Verificar test semanal ───────────────────────────────────────────────
 
     private fun checkWeeklyTest() {
         viewModelScope.launch {
@@ -103,11 +94,12 @@ class HomeViewModel(
         }
     }
 
-    // ─── Acciones del usuario ─────────────────────────────────────────────────
-
     fun markAsLearned(wordId: Int) {
         viewModelScope.launch {
             markWordAsLearnedUseCase(wordId)
+            appContext?.let { ctx ->
+                WordWidget().updateAll(ctx)
+            }
         }
     }
 
@@ -120,14 +112,12 @@ class HomeViewModel(
     }
 }
 
-// ─── Estado de la UI ──────────────────────────────────────────────────────────
-
 data class HomeUiState(
-    val isLoading: Boolean       = false,
-    val words: List<Word>        = emptyList(),
-    val progress: DailyProgress  = DailyProgress(0, 0),
-    val message: String?         = null,
-    val isCycleCompleted: Boolean = false,
-    val weeklyTestReady: Boolean  = false,
-    val currentWeekId: Int        = 1
+    val isLoading: Boolean        = false,
+    val words: List<Word>         = emptyList(),
+    val progress: DailyProgress   = DailyProgress(0, 0),
+    val message: String?          = null,
+    val isCycleCompleted: Boolean  = false,
+    val weeklyTestReady: Boolean   = false,
+    val currentWeekId: Int         = 1
 )
