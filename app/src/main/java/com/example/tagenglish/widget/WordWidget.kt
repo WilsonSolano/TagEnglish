@@ -30,7 +30,6 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
-import androidx.glance.layout.wrapContentHeight
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -52,8 +51,6 @@ private val WidgetTextSec    = Color(0xFF8A8A9A)
 private val WidgetLearned    = Color(0xFF1ECC7A)
 private val WidgetBtnBg      = Color(0xFF252530)
 private val WidgetDark       = Color(0xFF0D0D0F)
-
-// ─── Key compartida ───────────────────────────────────────────────────────────
 
 val wordIdKey = ActionParameters.Key<Int>("word_id")
 
@@ -100,23 +97,23 @@ private fun WidgetContent(
     val allLearned   = totalCount > 0 && learnedCount >= totalCount
     val launchIntent = Intent(context, MainActivity::class.java)
 
-    // Box externo transparente que ocupa todo el espacio del widget
-    // El Column interno con fondo solo cubre el contenido real → sin huecos
+    // Box externo: ocupa TODA la celda con el fondo oscuro + bordes redondeados
+    // Así no hay ningún área transparente visible alrededor
     Box(
-        modifier        = GlanceModifier.fillMaxSize(),
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(WidgetBg)
+            .cornerRadius(20.dp)
+            .clickable(actionStartActivity(launchIntent)),
         contentAlignment = Alignment.TopStart
     ) {
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .wrapContentHeight()
-                .background(WidgetBg)
-                .cornerRadius(20.dp)
-                .padding(14.dp)
-                .clickable(actionStartActivity(launchIntent))
+                .padding(12.dp)
         ) {
 
-            // ── Header: título + badge ────────────────────────────────────
+            // ── Header: título + badge ────────────────────────────────────────
             Row(
                 modifier          = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -124,7 +121,7 @@ private fun WidgetContent(
                 Text(
                     text  = "TagEnglish",
                     style = TextStyle(
-                        fontSize   = 13.sp,
+                        fontSize   = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color      = ColorProvider(WidgetAccentLime)
                     )
@@ -133,14 +130,14 @@ private fun WidgetContent(
                 Row(
                     modifier          = GlanceModifier
                         .background(WidgetBtnBg)
-                        .cornerRadius(8.dp)
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .cornerRadius(6.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text  = "$learnedCount/$totalCount",
                         style = TextStyle(
-                            fontSize   = 11.sp,
+                            fontSize   = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(
                                 if (allLearned) WidgetLearned else WidgetAccentLime
@@ -150,13 +147,13 @@ private fun WidgetContent(
                 }
             }
 
-            Spacer(GlanceModifier.height(5.dp))
+            Spacer(GlanceModifier.height(4.dp))
 
-            // ── Barra de progreso ─────────────────────────────────────────
+            // ── Barra de progreso ─────────────────────────────────────────────
             Box(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .height(3.dp)
+                    .height(2.dp)
                     .background(WidgetBtnBg)
                     .cornerRadius(4.dp)
             ) { }
@@ -165,38 +162,19 @@ private fun WidgetContent(
                 Box(
                     modifier = GlanceModifier
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(2.dp)
                         .background(WidgetAccentLime)
                         .cornerRadius(4.dp)
                 ) { }
             }
 
-            Spacer(GlanceModifier.height(12.dp))
+            Spacer(GlanceModifier.height(10.dp))
 
-            // ── Contenido según estado ────────────────────────────────────
+            // ── Contenido según estado ────────────────────────────────────────
             when {
                 totalCount == 0 || word == null -> {
                     Text(
-                        text  = "Abre la app para comenzar 🚀",
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            color    = ColorProvider(WidgetTextSec)
-                        )
-                    )
-                }
-
-                allLearned -> {
-                    Text(
-                        text  = "✅ ¡Día completado!",
-                        style = TextStyle(
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = ColorProvider(WidgetLearned)
-                        )
-                    )
-                    Spacer(GlanceModifier.height(4.dp))
-                    Text(
-                        text  = "Vuelve mañana para nuevas palabras",
+                        text  = "Abre la app 🚀",
                         style = TextStyle(
                             fontSize = 12.sp,
                             color    = ColorProvider(WidgetTextSec)
@@ -204,12 +182,31 @@ private fun WidgetContent(
                     )
                 }
 
+                allLearned -> {
+                    Text(
+                        text  = "✅ ¡Día completo!",
+                        style = TextStyle(
+                            fontSize   = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = ColorProvider(WidgetLearned)
+                        )
+                    )
+                    Spacer(GlanceModifier.height(4.dp))
+                    Text(
+                        text  = "Vuelve mañana",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            color    = ColorProvider(WidgetTextSec)
+                        )
+                    )
+                }
+
                 else -> {
-                    // ── Palabra ───────────────────────────────────────────
+                    // ── Palabra ───────────────────────────────────────────────
                     Text(
                         text  = word.word,
                         style = TextStyle(
-                            fontSize   = 28.sp,
+                            fontSize   = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(WidgetTextPrim)
                         )
@@ -217,22 +214,22 @@ private fun WidgetContent(
 
                     Spacer(GlanceModifier.height(8.dp))
 
-                    // ── Todos los significados ────────────────────────────
-                    word.usages.forEach { usage ->
+                    // ── Significados ──────────────────────────────────────────
+                    word.usages.take(2).forEach { usage ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = GlanceModifier
-                                    .width(3.dp)
-                                    .height(34.dp)
+                                    .width(2.dp)
+                                    .height(28.dp)
                                     .background(WidgetAccentBlue)
                                     .cornerRadius(4.dp)
                             ) { }
-                            Spacer(GlanceModifier.width(10.dp))
+                            Spacer(GlanceModifier.width(7.dp))
                             Column {
                                 Text(
                                     text  = usage.meaning,
                                     style = TextStyle(
-                                        fontSize   = 13.sp,
+                                        fontSize   = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color      = ColorProvider(WidgetTextPrim)
                                     )
@@ -240,24 +237,24 @@ private fun WidgetContent(
                                 Text(
                                     text  = usage.example,
                                     style = TextStyle(
-                                        fontSize = 11.sp,
+                                        fontSize = 9.sp,
                                         color    = ColorProvider(WidgetTextSec)
                                     )
                                 )
                             }
                         }
-                        Spacer(GlanceModifier.height(6.dp))
+                        Spacer(GlanceModifier.height(5.dp))
                     }
 
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.height(6.dp))
 
-                    // ── Botón marcar aprendida ────────────────────────────
+                    // ── Botón ─────────────────────────────────────────────────
                     Row(
                         modifier = GlanceModifier
                             .fillMaxWidth()
-                            .height(36.dp)
+                            .height(30.dp)
                             .background(WidgetAccentLime)
-                            .cornerRadius(10.dp)
+                            .cornerRadius(8.dp)
                             .clickable(
                                 actionRunCallback<MarkLearnedAction>(
                                     actionParametersOf(wordIdKey to word.id)
@@ -267,9 +264,9 @@ private fun WidgetContent(
                         verticalAlignment   = Alignment.CenterVertically
                     ) {
                         Text(
-                            text  = "✓  Marcar aprendida",
+                            text  = "✓ Aprendida",
                             style = TextStyle(
-                                fontSize   = 12.sp,
+                                fontSize   = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color      = ColorProvider(WidgetDark)
                             )

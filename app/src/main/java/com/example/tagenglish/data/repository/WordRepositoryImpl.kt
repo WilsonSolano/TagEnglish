@@ -2,8 +2,10 @@ package com.example.tagenglish.data.repository
 
 import com.example.tagenglish.data.local.dao.TestResultDao
 import com.example.tagenglish.data.local.dao.WordDao
-import com.example.tagenglish.data.local.entities.toDomain  // extensión suelta de Mappers.kt
-import com.example.tagenglish.data.local.entities.toEntity  // extensión suelta de Mappers.kt
+import com.example.tagenglish.data.local.entities.UsageEntity
+import com.example.tagenglish.data.local.entities.WordEntity
+import com.example.tagenglish.data.local.entities.toDomain
+import com.example.tagenglish.data.local.entities.toEntity
 import com.example.tagenglish.domain.model.TestResult
 import com.example.tagenglish.domain.model.Word
 import kotlinx.coroutines.flow.Flow
@@ -15,9 +17,7 @@ class WordRepositoryImpl(
 ) : WordRepository {
 
     override fun getTodayWords(ids: List<Int>): Flow<List<Word>> =
-        wordDao.getTodayWordsWithUsages(ids).map { list ->
-            list.map { it.toDomain() }
-        }
+        wordDao.getTodayWordsWithUsages(ids).map { list -> list.map { it.toDomain() } }
 
     override suspend fun assignNewWords(count: Int, date: Long, week: Int): List<Int> {
         val words = wordDao.getUnassignedWords(count)
@@ -31,11 +31,43 @@ class WordRepositoryImpl(
     override suspend fun markWordAsLearned(wordId: Int, date: Long, week: Int) =
         wordDao.markAsLearned(wordId, date, week)
 
+    override suspend fun unmarkWordAsLearned(wordId: Int) =
+        wordDao.unmarkAsLearned(wordId)
+
     override suspend fun hasPendingWords(ids: List<Int>): Boolean =
         wordDao.countPendingWords(ids) > 0
 
     override suspend fun getLearnedWordsByWeek(week: Int): List<Word> =
         wordDao.getLearnedWordsByWeek(week).map { it.toDomain() }
+
+    override fun getAllLearnedWords(): Flow<List<Word>> =
+        wordDao.getAllLearnedWords().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getAllWords(): List<Word> =
+        wordDao.getAllWordsWithUsages().map { it.toDomain() }
+
+    override fun getAllWordsFlow(): Flow<List<Word>> =
+        wordDao.getAllWordsWithUsagesFlow().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun importWords(words: List<Word>): Int {
+        var imported = 0
+        words.forEach { word ->
+            val id = wordDao.insertWord(WordEntity(word = word.word)).toInt()
+            if (id > 0) {
+                wordDao.insertUsages(
+                    word.usages.map { usage ->
+                        UsageEntity(
+                            wordId  = id,
+                            meaning = usage.meaning,
+                            example = usage.example
+                        )
+                    }
+                )
+                imported++
+            }
+        }
+        return imported
+    }
 
     override suspend fun saveTestResult(result: TestResult) =
         testResultDao.insertResult(result.toEntity())

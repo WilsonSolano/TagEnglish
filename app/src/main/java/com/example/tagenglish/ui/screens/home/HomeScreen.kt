@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,16 +43,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,27 +57,28 @@ import androidx.compose.ui.unit.sp
 import com.example.tagenglish.domain.model.Word
 import com.example.tagenglish.ui.viewmodels.HomeViewModel
 
-// ─── Paleta de colores ────────────────────────────────────────────────────────
+// ─── Paleta ───────────────────────────────────────────────────────────────────
 
-private val BgDark       = Color(0xFF0D0D0F)
-private val BgCard       = Color(0xFF16161A)
-private val BgCardAlt    = Color(0xFF1C1C22)
-private val AccentLime   = Color(0xFFCAFF4D)
-private val AccentBlue   = Color(0xFF4D9EFF)
-private val AccentPurple = Color(0xFFB66DFF)
-private val TextPrimary  = Color(0xFFF5F5F5)
-private val TextSecondary= Color(0xFF8A8A9A)
-private val TextMuted    = Color(0xFF4A4A5A)
-private val Learned      = Color(0xFF1ECC7A)
-private val CardBorder   = Color(0xFF252530)
+private val BgDark        = Color(0xFF0D0D0F)
+private val BgCard        = Color(0xFF16161A)
+private val AccentLime    = Color(0xFFCAFF4D)
+private val AccentBlue    = Color(0xFF4D9EFF)
+private val AccentPurple  = Color(0xFFB66DFF)
+private val TextPrimary   = Color(0xFFF5F5F5)
+private val TextSecondary = Color(0xFF8A8A9A)
+private val TextMuted     = Color(0xFF4A4A5A)
+private val Learned       = Color(0xFF1ECC7A)
+private val CardBorder    = Color(0xFF252530)
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onStartTest: (weekId: Int) -> Unit
+    onStartTest: (weekId: Int) -> Unit,
+    onViewLearned: () -> Unit,
+    onManageVocabulary: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val uiState           by viewModel.uiState.collectAsState()
+    val snackbarHostState =  remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -114,16 +109,14 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
 
-            // ── Header ────────────────────────────────────────────────────────
             item {
                 AppHeader(
-                    week     = uiState.currentWeekId,
-                    learned  = uiState.progress.learnedWords,
-                    total    = uiState.progress.totalWords
+                    week               = uiState.currentWeekId,
+                    onViewLearned      = onViewLearned,
+                    onManageVocabulary = onManageVocabulary
                 )
             }
 
-            // ── Progress Card ─────────────────────────────────────────────────
             item {
                 ProgressSection(
                     learned = uiState.progress.learnedWords,
@@ -131,18 +124,14 @@ fun HomeScreen(
                 )
             }
 
-            // ── Ciclo completado ──────────────────────────────────────────────
             if (uiState.isCycleCompleted) {
                 item {
                     CycleCompletedBanner(onDismiss = viewModel::dismissCycleCompleted)
                 }
             }
 
-            // ── Palabras ──────────────────────────────────────────────────────
             if (uiState.words.isEmpty()) {
-                item {
-                    EmptyState()
-                }
+                item { EmptyState() }
             } else {
                 itemsIndexed(uiState.words, key = { _, w -> w.id }) { index, word ->
                     AnimatedVisibility(
@@ -165,53 +154,98 @@ fun HomeScreen(
 // ─── AppHeader ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AppHeader(week: Int, learned: Int, total: Int) {
+private fun AppHeader(
+    week: Int,
+    onViewLearned: () -> Unit,
+    onManageVocabulary: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF141420), BgDark)
-                )
-            )
-            .padding(horizontal = 24.dp, vertical = 28.dp)
+            .background(Brush.verticalGradient(listOf(Color(0xFF141420), BgDark)))
+            .padding(horizontal = 24.dp, vertical = 22.dp)
     ) {
-        Row(
-            modifier       = Modifier.fillMaxWidth(),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text       = "TagEnglish",
-                    fontSize   = 30.sp,
-                    fontWeight = FontWeight.Black,
-                    color      = TextPrimary,
-                    letterSpacing = (-1).sp
-                )
-                Text(
-                    text  = "Semana $week · aprende inglés",
-                    fontSize  = 13.sp,
-                    color     = TextSecondary,
-                    letterSpacing = 0.3.sp
-                )
+        Column {
+            // Título + badge semana
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text          = "TagEnglish",
+                        fontSize      = 30.sp,
+                        fontWeight    = FontWeight.Black,
+                        color         = TextPrimary,
+                        letterSpacing = (-1).sp
+                    )
+                    Text(
+                        text          = "Semana $week · aprende inglés",
+                        fontSize      = 13.sp,
+                        color         = TextSecondary,
+                        letterSpacing = 0.3.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(listOf(AccentPurple, AccentBlue)))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text       = "W$week",
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = Color.White
+                    )
+                }
             }
 
-            // Badge semana
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        Brush.linearGradient(listOf(AccentPurple, AccentBlue))
-                    )
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            Spacer(Modifier.height(14.dp))
+
+            // Dos botones de acceso rápido
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text       = "W$week",
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color      = Color.White
-                )
+                // Ver aprendidas
+                OutlinedButton(
+                    onClick  = onViewLearned,
+                    modifier = Modifier.weight(1f),
+                    shape    = RoundedCornerShape(12.dp),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1A3024)),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = Learned)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier           = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text       = "Aprendidas",
+                        fontSize   = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Gestionar vocabulario
+                OutlinedButton(
+                    onClick  = onManageVocabulary,
+                    modifier = Modifier.weight(1f),
+                    shape    = RoundedCornerShape(12.dp),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1A2030)),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue)
+                ) {
+                    Text("📦", fontSize = 13.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text       = "Vocabulario",
+                        fontSize   = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
@@ -223,9 +257,9 @@ private fun AppHeader(week: Int, learned: Int, total: Int) {
 private fun ProgressSection(learned: Int, total: Int) {
     val fraction = if (total == 0) 0f else learned.toFloat() / total
     val animFraction by animateFloatAsState(
-        targetValue  = fraction,
+        targetValue   = fraction,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label        = "progress"
+        label         = "progress"
     )
 
     Box(
@@ -241,15 +275,15 @@ private fun ProgressSection(learned: Int, total: Int) {
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
-                    modifier       = Modifier.fillMaxWidth(),
+                    modifier              = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
                     Text(
-                        text       = "Progreso de hoy",
-                        fontSize   = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = TextSecondary,
+                        text          = "Progreso de hoy",
+                        fontSize      = 14.sp,
+                        fontWeight    = FontWeight.SemiBold,
+                        color         = TextSecondary,
                         letterSpacing = 0.5.sp
                     )
                     Text(
@@ -259,10 +293,7 @@ private fun ProgressSection(learned: Int, total: Int) {
                         color      = if (fraction >= 1f) Learned else AccentLime
                     )
                 }
-
                 Spacer(Modifier.height(14.dp))
-
-                // Barra de progreso custom
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -275,22 +306,16 @@ private fun ProgressSection(learned: Int, total: Int) {
                             .fillMaxWidth(animFraction)
                             .height(8.dp)
                             .clip(CircleShape)
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(AccentLime, AccentBlue)
-                                )
-                            )
+                            .background(Brush.horizontalGradient(listOf(AccentLime, AccentBlue)))
                     )
                 }
-
                 Spacer(Modifier.height(10.dp))
-
                 Text(
-                    text  = when {
-                        total == 0      -> "Cargando palabras..."
-                        fraction >= 1f  -> "✅ ¡Día completado! Vuelve mañana"
-                        fraction >= 0.5f-> "💪 ¡Vas a la mitad!"
-                        else            -> "🚀 ¡Empieza a aprender!"
+                    text = when {
+                        total == 0       -> "Cargando palabras..."
+                        fraction >= 1f   -> "✅ ¡Día completado! Vuelve mañana"
+                        fraction >= 0.5f -> "💪 ¡Vas a la mitad!"
+                        else             -> "🚀 ¡Empieza a aprender!"
                     },
                     fontSize = 12.sp,
                     color    = TextMuted
@@ -304,14 +329,11 @@ private fun ProgressSection(learned: Int, total: Int) {
 
 @Composable
 private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
-    // Colores de acento rotando por índice
     val accentColor = when (index % 3) {
         0    -> AccentLime
         1    -> AccentBlue
         else -> AccentPurple
     }
-
-    var expanded by remember { mutableStateOf(!word.isLearned) }
 
     Box(
         modifier = Modifier
@@ -325,20 +347,18 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
                 containerColor = if (word.isLearned) Color(0xFF141A16) else BgCard
             ),
             border   = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = if (word.isLearned) Color(0xFF1A3024) else CardBorder
+                1.dp,
+                if (word.isLearned) Color(0xFF1A3024) else CardBorder
             )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
 
-                // ── Encabezado de la tarjeta ──────────────────────────────────
                 Row(
-                    modifier       = Modifier.fillMaxWidth(),
+                    modifier              = Modifier.fillMaxWidth(),
                     verticalAlignment     = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Dot de acento
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
@@ -347,14 +367,13 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text       = word.word,
-                            fontSize   = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color      = if (word.isLearned) Learned else TextPrimary,
+                            text          = word.word,
+                            fontSize      = 26.sp,
+                            fontWeight    = FontWeight.Black,
+                            color         = if (word.isLearned) Learned else TextPrimary,
                             letterSpacing = (-0.5).sp
                         )
                     }
-
                     AnimatedVisibility(
                         visible = word.isLearned,
                         enter   = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn()
@@ -366,10 +385,10 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text      = "✓ aprendida",
-                                fontSize  = 11.sp,
-                                fontWeight= FontWeight.Bold,
-                                color     = Learned
+                                text       = "✓ aprendida",
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = Learned
                             )
                         }
                     }
@@ -377,14 +396,12 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Significados ──────────────────────────────────────────────
                 word.usages.forEachIndexed { i, usage ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = if (i < word.usages.size - 1) 12.dp else 0.dp)
                     ) {
-                        // Línea vertical de acento
                         Box(
                             modifier = Modifier
                                 .width(3.dp)
@@ -412,15 +429,11 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
                     }
                 }
 
-                // ── Botón aprender ────────────────────────────────────────────
                 if (!word.isLearned) {
                     Spacer(Modifier.height(18.dp))
-
                     Button(
                         onClick  = onMarkLearned,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape    = RoundedCornerShape(14.dp),
                         colors   = ButtonDefaults.buttonColors(
                             containerColor = accentColor,
@@ -428,9 +441,9 @@ private fun WordCard(word: Word, index: Int, onMarkLearned: () -> Unit) {
                         )
                     ) {
                         Text(
-                            text       = "Marcar como aprendida",
-                            fontWeight = FontWeight.Bold,
-                            fontSize   = 14.sp,
+                            text          = "Marcar como aprendida",
+                            fontWeight    = FontWeight.Bold,
+                            fontSize      = 14.sp,
                             letterSpacing = 0.3.sp
                         )
                     }
@@ -464,7 +477,7 @@ private fun CycleCompletedBanner(onDismiss: () -> Unit) {
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text  = "Has aprendido todo el vocabulario disponible. ¿Volvemos a empezar?",
+                    text     = "Has aprendido todo el vocabulario disponible. ¿Volvemos a empezar?",
                     fontSize = 13.sp,
                     color    = TextSecondary
                 )
@@ -487,9 +500,7 @@ private fun CycleCompletedBanner(onDismiss: () -> Unit) {
 @Composable
 private fun EmptyState() {
     Box(
-        modifier         = Modifier
-            .fillMaxWidth()
-            .padding(top = 64.dp),
+        modifier         = Modifier.fillMaxWidth().padding(top = 64.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -503,7 +514,7 @@ private fun EmptyState() {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text  = "Vuelve mañana para nuevas palabras",
+                text     = "Vuelve mañana para nuevas palabras",
                 fontSize = 13.sp,
                 color    = TextSecondary
             )

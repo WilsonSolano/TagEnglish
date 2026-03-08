@@ -27,11 +27,9 @@ interface WordDao {
     @Update
     suspend fun updateWord(word: WordEntity)
 
-    /** Marca una palabra como asignada */
     @Query("UPDATE words SET isAssigned = 1, assignedDate = :date WHERE id = :wordId")
     suspend fun markAsAssigned(wordId: Int, date: Long)
 
-    /** Marca una palabra como aprendida */
     @Query("""
         UPDATE words 
         SET isLearned = 1, learnedDate = :date, weekLearned = :week 
@@ -39,35 +37,52 @@ interface WordDao {
     """)
     suspend fun markAsLearned(wordId: Int, date: Long, week: Int)
 
-    // ─── Query palabras disponibles ───────────────────────────────────────────
+    @Query("""
+        UPDATE words 
+        SET isLearned = 0, learnedDate = 0, weekLearned = 0 
+        WHERE id = :wordId
+    """)
+    suspend fun unmarkAsLearned(wordId: Int)
 
-    /** Palabras que aún no han sido asignadas */
+    // ─── Queries ──────────────────────────────────────────────────────────────
+
     @Query("SELECT * FROM words WHERE isAssigned = 0 LIMIT :limit")
     suspend fun getUnassignedWords(limit: Int): List<WordEntity>
 
-    /** Palabras asignadas hoy (por sus IDs) */
     @Transaction
     @Query("SELECT * FROM words WHERE id IN (:ids)")
     fun getTodayWordsWithUsages(ids: List<Int>): Flow<List<WordWithUsages>>
 
-    /** Palabras aprendidas en una semana concreta */
     @Transaction
     @Query("SELECT * FROM words WHERE isLearned = 1 AND weekLearned = :week")
     suspend fun getLearnedWordsByWeek(week: Int): List<WordWithUsages>
 
-    /** Verifica si todas las palabras de la lista están aprendidas */
+    @Transaction
+    @Query("SELECT * FROM words WHERE isLearned = 1 ORDER BY learnedDate DESC")
+    fun getAllLearnedWords(): Flow<List<WordWithUsages>>
+
+    /** Todas las palabras con sus usos — para exportar */
+    @Transaction
+    @Query("SELECT * FROM words ORDER BY word ASC")
+    suspend fun getAllWordsWithUsages(): List<WordWithUsages>
+
+    /** Todas las palabras reactivo — para la pantalla de vocabulario */
+    @Transaction
+    @Query("SELECT * FROM words ORDER BY word ASC")
+    fun getAllWordsWithUsagesFlow(): Flow<List<WordWithUsages>>
+
     @Query("SELECT COUNT(*) FROM words WHERE id IN (:ids) AND isLearned = 0")
     suspend fun countPendingWords(ids: List<Int>): Int
 
-    /** Total de palabras no asignadas */
     @Query("SELECT COUNT(*) FROM words WHERE isAssigned = 0")
     suspend fun countUnassignedWords(): Int
 
-    /** Todas las palabras (para debug / ciclo completado) */
+    @Query("SELECT COUNT(*) FROM words")
+    suspend fun countAllWords(): Int
+
     @Query("SELECT * FROM words")
     fun getAllWords(): Flow<List<WordEntity>>
 
-    /** Resetea el ciclo: desmarca isAssigned e isLearned en todas */
     @Query("UPDATE words SET isAssigned = 0, isLearned = 0, assignedDate = 0, learnedDate = 0, weekLearned = 0")
     suspend fun resetAllWords()
 }

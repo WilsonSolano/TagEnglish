@@ -8,21 +8,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.tagenglish.ui.screens.home.HomeScreen
+import com.example.tagenglish.ui.screens.learned.LearnedWordsScreen
 import com.example.tagenglish.ui.screens.test.WeeklyTestScreen
+import com.example.tagenglish.ui.screens.vocabulary.VocabularyManagerScreen
 import com.example.tagenglish.ui.viewmodels.HomeViewModel
+import com.example.tagenglish.ui.viewmodels.LearnedWordsViewModel
 import com.example.tagenglish.ui.viewmodels.TestViewModel
+import com.example.tagenglish.ui.viewmodels.VocabularyManagerViewModel
 import com.example.tagenglish.ui.viewmodels.ViewModelFactory
 
-// ─── Rutas ────────────────────────────────────────────────────────────────────
-
 sealed class Screen(val route: String) {
-    object Home       : Screen("home")
-    object WeeklyTest : Screen("weekly_test/{weekId}") {
+    object Home               : Screen("home")
+    object LearnedWords       : Screen("learned_words")
+    object VocabularyManager  : Screen("vocabulary_manager")
+    object WeeklyTest         : Screen("weekly_test/{weekId}") {
         fun createRoute(weekId: Int) = "weekly_test/$weekId"
     }
 }
-
-// ─── NavGraph ─────────────────────────────────────────────────────────────────
 
 @Composable
 fun AppNavGraph(
@@ -38,10 +40,28 @@ fun AppNavGraph(
         composable(Screen.Home.route) {
             val viewModel: HomeViewModel = viewModel(factory = factory)
             HomeScreen(
-                viewModel    = viewModel,
-                onStartTest  = { weekId ->
+                viewModel            = viewModel,
+                onStartTest          = { weekId ->
                     navController.navigate(Screen.WeeklyTest.createRoute(weekId))
-                }
+                },
+                onViewLearned        = { navController.navigate(Screen.LearnedWords.route) },
+                onManageVocabulary   = { navController.navigate(Screen.VocabularyManager.route) }
+            )
+        }
+
+        composable(Screen.LearnedWords.route) {
+            val viewModel: LearnedWordsViewModel = viewModel(factory = factory)
+            LearnedWordsScreen(
+                viewModel = viewModel,
+                onBack    = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.VocabularyManager.route) {
+            val viewModel: VocabularyManagerViewModel = viewModel(factory = factory)
+            VocabularyManagerScreen(
+                viewModel = viewModel,
+                onBack    = { navController.popBackStack() }
             )
         }
 
