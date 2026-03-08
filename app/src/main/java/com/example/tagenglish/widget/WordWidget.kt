@@ -97,20 +97,19 @@ private fun WidgetContent(
     val allLearned   = totalCount > 0 && learnedCount >= totalCount
     val launchIntent = Intent(context, MainActivity::class.java)
 
-    // Box externo: ocupa TODA la celda con el fondo oscuro + bordes redondeados
-    // Así no hay ningún área transparente visible alrededor
+    // Box externo fillMaxSize con fondo oscuro — cubre toda la celda 2x2
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(WidgetBg)
-            .cornerRadius(20.dp)
+            .cornerRadius(18.dp)
             .clickable(actionStartActivity(launchIntent)),
         contentAlignment = Alignment.TopStart
     ) {
         Column(
             modifier = GlanceModifier
-                .fillMaxWidth()
-                .padding(12.dp)
+                .fillMaxSize()
+                .padding(10.dp)
         ) {
 
             // ── Header: título + badge ────────────────────────────────────────
@@ -121,23 +120,23 @@ private fun WidgetContent(
                 Text(
                     text  = "TagEnglish",
                     style = TextStyle(
-                        fontSize   = 11.sp,
+                        fontSize   = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color      = ColorProvider(WidgetAccentLime)
                     )
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Row(
-                    modifier          = GlanceModifier
+                    modifier = GlanceModifier
                         .background(WidgetBtnBg)
-                        .cornerRadius(6.dp)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .cornerRadius(5.dp)
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text  = "$learnedCount/$totalCount",
                         style = TextStyle(
-                            fontSize   = 10.sp,
+                            fontSize   = 9.sp,
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(
                                 if (allLearned) WidgetLearned else WidgetAccentLime
@@ -147,7 +146,7 @@ private fun WidgetContent(
                 }
             }
 
-            Spacer(GlanceModifier.height(4.dp))
+            Spacer(GlanceModifier.height(3.dp))
 
             // ── Barra de progreso ─────────────────────────────────────────────
             Box(
@@ -168,7 +167,7 @@ private fun WidgetContent(
                 ) { }
             }
 
-            Spacer(GlanceModifier.height(10.dp))
+            Spacer(GlanceModifier.height(6.dp))
 
             // ── Contenido según estado ────────────────────────────────────────
             when {
@@ -176,7 +175,7 @@ private fun WidgetContent(
                     Text(
                         text  = "Abre la app 🚀",
                         style = TextStyle(
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             color    = ColorProvider(WidgetTextSec)
                         )
                     )
@@ -186,16 +185,16 @@ private fun WidgetContent(
                     Text(
                         text  = "✅ ¡Día completo!",
                         style = TextStyle(
-                            fontSize   = 14.sp,
+                            fontSize   = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(WidgetLearned)
                         )
                     )
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.height(3.dp))
                     Text(
                         text  = "Vuelve mañana",
                         style = TextStyle(
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             color    = ColorProvider(WidgetTextSec)
                         )
                     )
@@ -206,25 +205,25 @@ private fun WidgetContent(
                     Text(
                         text  = word.word,
                         style = TextStyle(
-                            fontSize   = 22.sp,
+                            fontSize   = 19.sp,       // reducido de 22 → 19
                             fontWeight = FontWeight.Bold,
                             color      = ColorProvider(WidgetTextPrim)
                         )
                     )
 
-                    Spacer(GlanceModifier.height(8.dp))
+                    Spacer(GlanceModifier.height(5.dp))
 
-                    // ── Significados ──────────────────────────────────────────
-                    word.usages.take(2).forEach { usage ->
+                    // ── Solo 1 significado para que quepa en 2x2 ─────────────
+                    word.usages.take(1).forEach { usage ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = GlanceModifier
                                     .width(2.dp)
-                                    .height(28.dp)
+                                    .height(24.dp)
                                     .background(WidgetAccentBlue)
                                     .cornerRadius(4.dp)
                             ) { }
-                            Spacer(GlanceModifier.width(7.dp))
+                            Spacer(GlanceModifier.width(6.dp))
                             Column {
                                 Text(
                                     text  = usage.meaning,
@@ -243,7 +242,29 @@ private fun WidgetContent(
                                 )
                             }
                         }
-                        Spacer(GlanceModifier.height(5.dp))
+                    }
+
+                    // Si hay 2+ significados, mostrar el segundo más pequeño
+                    if (word.usages.size >= 2) {
+                        Spacer(GlanceModifier.height(3.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = GlanceModifier
+                                    .width(2.dp)
+                                    .height(14.dp)
+                                    .background(WidgetAccentBlue)
+                                    .cornerRadius(4.dp)
+                            ) { }
+                            Spacer(GlanceModifier.width(6.dp))
+                            Text(
+                                text  = word.usages[1].meaning,
+                                style = TextStyle(
+                                    fontSize   = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = ColorProvider(WidgetTextSec)
+                                )
+                            )
+                        }
                     }
 
                     Spacer(GlanceModifier.height(6.dp))
@@ -252,7 +273,7 @@ private fun WidgetContent(
                     Row(
                         modifier = GlanceModifier
                             .fillMaxWidth()
-                            .height(30.dp)
+                            .height(28.dp)
                             .background(WidgetAccentLime)
                             .cornerRadius(8.dp)
                             .clickable(
